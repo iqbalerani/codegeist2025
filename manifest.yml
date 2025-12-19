@@ -153,24 +153,23 @@ modules:
   # ═══════════════════════════════════════════════════════════
   # JIRA PANELS
   # Dashboard widgets showing key metrics at a glance
-  # UI Kit 2 Structure: resource points to frontend, resolver handles backend
+  # Custom UI Structure: resource points to bundled static files with index.html
+  # Resolver handles backend invoke() calls from @forge/bridge
   # ═══════════════════════════════════════════════════════════
   jira:projectPage:
     - key: driver-telemetry-dashboard
       title: Driver Telemetry
-      resource: main
+      resource: main-ui
       resolver:
         function: ui-resolver
-      render: native
 
   jira:issuePanel:
     - key: driver-telemetry-issue-panel
       title: Driver Telemetry
       icon: https://developer.atlassian.com/platform/forge/images/icons/issue-panel-icon.svg
-      resource: main
+      resource: main-ui
       resolver:
         function: ui-resolver
-      render: native
 
   # ═══════════════════════════════════════════════════════════
   # FORGE FUNCTIONS
@@ -205,11 +204,12 @@ modules:
 
 # ═══════════════════════════════════════════════════════════
 # RESOURCES
-# Frontend code entry points for UI Kit 2
+# Frontend bundled static files for Custom UI
+# Built with Webpack and served from static/view directory
 # ═══════════════════════════════════════════════════════════
 resources:
-  - key: main
-    path: src/frontend/index.tsx
+  - key: main-ui
+    path: static/view
 
 # ═══════════════════════════════════════════════════════════
 # PERMISSIONS

@@ -43,12 +43,11 @@ export async function getActiveIssues(accountId?: string): Promise<JiraIssue[]> 
   console.log('getActiveIssues CALLED');
   console.log('Using currentUser() for query (ignoring accountId parameter)');
 
-  // TEST: Ultra-minimal JQL to see if ANY query works
-  // Try just assignee filter first, then add status filter if it works
-  const jql = `assignee = currentUser() ORDER BY updated DESC`;
+  // Get active (In Progress + To Do) tickets only, excluding Done
+  const jql = `assignee = currentUser() AND status NOT IN (Done, Closed, Resolved) ORDER BY updated DESC`;
 
-  console.log('Constructed JQL Query (MINIMAL TEST):', jql);
-  console.log('Note: Temporarily removed status filter to debug 410 error');
+  console.log('Constructed JQL Query (Active only):', jql);
+  console.log('Note: Excludes Done/Closed/Resolved to show only active work');
 
   try {
     console.log('Calling jiraClient.searchIssues...');
