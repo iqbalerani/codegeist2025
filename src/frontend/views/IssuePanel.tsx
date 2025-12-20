@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { rovo } from '@forge/bridge';
+import { rovo, router } from '@forge/bridge';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -16,15 +16,62 @@ export const IssuePanel: React.FC = () => {
   const { data, loading, error } = useDashboardData();
 
   const openRovoChat = async (prompt?: string) => {
+    console.log('🏎️ Opening Team Radio from Issue Panel...');
+    console.log('Agent Key:', 'driver-telemetry-agent');
+    console.log('Prompt:', prompt);
+
     try {
-      await rovo.open({
-        type: 'forge',
+      // Try official Forge Rovo API
+      const rovoPayload = {
+        type: 'forge' as const,
         agentKey: 'driver-telemetry-agent',
         agentName: 'Driver Telemetry',
         prompt,
-      });
+      };
+      console.log('Calling rovo.open() with payload:', rovoPayload);
+
+      await rovo.open(rovoPayload);
+
+      console.log('✅ rovo.open() completed successfully!');
+
+      // Show setup instructions only once per browser
+      const hasSeenSetup = localStorage.getItem('driver-telemetry-agent-setup-shown');
+      if (!hasSeenSetup) {
+        setTimeout(() => {
+          const userResponse = confirm(
+            '💡 Team Radio Setup\n\n' +
+            'If Rovo didn\'t open, enable the agent:\n' +
+            'Chat → Browse Agents → "Driver Telemetry" → Enable\n\n' +
+            'Click OK to not show this again.'
+          );
+          if (userResponse) {
+            localStorage.setItem('driver-telemetry-agent-setup-shown', 'true');
+          }
+        }, 1500);
+      }
     } catch (err) {
-      console.error('Error opening Rovo:', err);
+      console.error('❌ rovo.open() error:', err);
+
+      // Try default Rovo as fallback
+      try {
+        console.log('Trying default Rovo agent...');
+        await rovo.open({ type: 'default' });
+        console.log('✅ Default Rovo opened - enable Driver Telemetry agent in Browse Agents');
+        alert('Please enable "Driver Telemetry" agent:\n1. Chat → Browse Agents\n2. Find "Driver Telemetry"\n3. Click Enable');
+      } catch (defaultErr) {
+        console.error('❌ Default Rovo failed:', defaultErr);
+
+        try {
+          console.log('Trying router.open()...');
+          await router.open('https://home.atlassian.com/assist/rovo');
+          if (prompt) {
+            await navigator.clipboard.writeText(`Driver Telemetry: ${prompt}`);
+          }
+        } catch (routerErr) {
+          console.error('❌ All methods failed:', routerErr);
+          alert('Rovo may not be activated. Contact your admin.');
+        }
+      }
     }
   };
 

@@ -10,6 +10,9 @@ import { analyzeCollaborationPatterns } from '../analyzers/collaboration';
 import { analyzeTrends } from '../analyzers/trends';
 import { getCurrentStatus } from '../analyzers/currentStatus';
 import { getRecommendation } from '../analyzers/recommendation';
+import { analyzeBurnoutRisk } from '../analyzers/burnout';
+import { analyzePitCrewPatterns } from '../analyzers/pitcrew';
+import { predictSprintCompletion } from '../analyzers/predictions';
 
 /**
  * Handler for analyze-timing action
@@ -170,6 +173,72 @@ export async function getRecommendationHandler(payload: any, context: any) {
     };
   } catch (error) {
     console.error('Error in getRecommendationHandler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Handler for analyze-burnout action
+ */
+export async function analyzeBurnoutRiskHandler(payload: any, context: any) {
+  try {
+    const accountId = context.accountId;
+
+    const analysis = await analyzeBurnoutRisk(accountId);
+
+    return {
+      success: true,
+      data: analysis
+    };
+  } catch (error) {
+    console.error('Error in analyzeBurnoutRiskHandler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Handler for analyze-pitcrew action
+ */
+export async function analyzePitCrewHandler(payload: any, context: any) {
+  try {
+    const accountId = context.accountId;
+
+    const analysis = await analyzePitCrewPatterns(accountId);
+
+    return {
+      success: true,
+      data: analysis
+    };
+  } catch (error) {
+    console.error('Error in analyzePitCrewHandler:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * Handler for predict-sprint action
+ */
+export async function predictSprintHandler(payload: any, context: any) {
+  try {
+    const accountId = context.accountId;
+
+    const prediction = await predictSprintCompletion(accountId);
+
+    return {
+      success: true,
+      data: prediction
+    };
+  } catch (error) {
+    console.error('Error in predictSprintHandler:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'

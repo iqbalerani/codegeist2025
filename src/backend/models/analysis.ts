@@ -190,6 +190,30 @@ export interface CurrentStatus {
     optimalMax: number;
     currentLoad: number;
   };
+  // Velocity data for speed gauge
+  velocityData?: {
+    current: number;        // tickets completed in last 7 days
+    weeklyAvg: number;      // 30-day rolling average
+    monthlyTotal: number;   // last 30 days total
+    status: 'below' | 'on-pace' | 'above';
+  };
+  // Burnout data for engine temperature gauge
+  burnoutData?: {
+    burnoutScore: number;
+    riskLevel: 'healthy' | 'warning' | 'high' | 'critical';
+    topRiskFactors: string[];
+  };
+  // Pit crew data for collaboration
+  pitCrewData?: {
+    topTeammates: Array<{ name: string; collaborations: number }>;
+    bestChemistry?: { name: string; speedup: number };
+  };
+  // Sprint prediction data
+  sprintPredictionData?: {
+    completionProbability: number;
+    expectedCompleted: number;
+    atRiskCount: number;
+  };
 }
 
 export interface RecommendationContext {
@@ -204,4 +228,123 @@ export interface Recommendation {
   reasoning: string;
   actionable: boolean;
   actions?: string[];
+}
+
+// ============================================
+// BURNOUT DETECTION
+// ============================================
+
+export interface BurnoutAnalysis {
+  accountId: string;
+  burnoutScore: number; // 0-100 (0=healthy, 100=critical)
+  riskLevel: 'healthy' | 'warning' | 'high' | 'critical';
+  riskFactors: BurnoutRiskFactor[];
+  trends: {
+    weeklyOverload: number[]; // last 8 weeks, % of time overloaded
+    dangerHourWork: number[]; // last 8 weeks, % of work in danger hours
+    velocityTrend: number[]; // last 8 weeks, tickets completed
+  };
+  recommendations: string[];
+  recoveryPlan?: string[];
+  confidence: 'high' | 'medium' | 'low';
+  dataPoints: number;
+  lastUpdated: Date;
+}
+
+export interface BurnoutRiskFactor {
+  factor: 'sustained_overload' | 'danger_hours' | 'declining_velocity' | 'long_cycles' | 'no_breaks';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  weeksAffected: number;
+  impact: number; // contribution to burnout score (0-100)
+}
+
+// ============================================
+// PIT CREW ANALYTICS
+// ============================================
+
+export interface PitCrewAnalysis {
+  accountId: string;
+  teammates: TeamMateProfile[];
+  collaborationNetwork: CollaborationEdge[];
+  chemistryScores: Record<string, ChemistryScore>;
+  teamMetrics: {
+    avgCollaborationCycleTime: number;
+    fastestUnblocker?: TeamMateProfile;
+    bestPair?: { teammate: string; displayName: string; speedup: number };
+    totalCollaborations: number;
+  };
+  recommendations: string[];
+  confidence: 'high' | 'medium' | 'low';
+  dataPoints: number;
+  lastUpdated: Date;
+}
+
+export interface TeamMateProfile {
+  accountId: string;
+  displayName: string;
+  avatarUrl?: string;
+  collaborationCount: number;
+  sharedIssues: number;
+  mentionCount: number;
+}
+
+export interface CollaborationEdge {
+  from: string; // accountId
+  to: string;
+  strength: number; // 0-1
+  issueCount: number;
+  avgCycleTime: number;
+}
+
+export interface ChemistryScore {
+  teammate: string;
+  displayName: string;
+  score: number; // 0-100
+  speedMultiplier: number; // e.g., 1.4 = 40% faster together
+  collaborations: number;
+  rating: 'excellent' | 'good' | 'neutral' | 'needs-work';
+}
+
+// ============================================
+// SPRINT PREDICTIONS
+// ============================================
+
+export interface SprintPrediction {
+  accountId: string;
+  sprintId?: string;
+  sprintName?: string;
+  predictions: {
+    completionProbability: number; // 0-1
+    expectedTicketsCompleted: number;
+    confidenceInterval: { low: number; high: number };
+    atRiskTickets: TicketRisk[];
+  };
+  currentState: {
+    totalTickets: number;
+    completedTickets: number;
+    remainingTickets: number;
+    daysRemaining: number;
+    currentVelocity: number; // tickets per week
+  };
+  whatIfScenarios: WhatIfScenario[];
+  recommendations: string[];
+  confidence: 'high' | 'medium' | 'low';
+  lastUpdated: Date;
+}
+
+export interface TicketRisk {
+  issueKey: string;
+  summary: string;
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
+  estimatedDaysRemaining: number;
+  factors: string[];
+  recommendedAction: string;
+}
+
+export interface WhatIfScenario {
+  scenario: string; // e.g., "Add 1 more ticket"
+  impact: string;
+  completionProbability: number;
+  recommendation: 'safe' | 'risky' | 'avoid';
 }

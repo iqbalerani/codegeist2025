@@ -152,49 +152,35 @@ function buildLoadCurve(issues: any[]): Record<number, LoadPoint> {
 }
 
 /**
- * Find optimal load range based on performance scores
+ * Find optimal load range based on industry best practices for individual contributors
  */
 function findOptimalLoadRange(loadCurve: Record<number, LoadPoint>): { min: number; max: number } {
-  const loads = Object.values(loadCurve);
-
-  if (loads.length === 0) {
-    return { min: 2, max: 3 }; // default
-  }
-
-  // Find load with best score
-  const sortedByScore = [...loads].sort((a, b) => b.score - a.score);
-  const bestLoad = sortedByScore[0];
-
-  // Find loads within 90% of best score
-  const threshold = bestLoad.score * 0.9;
-  const goodLoads = loads.filter(l => l.score >= threshold);
-
-  if (goodLoads.length === 0) {
-    return { min: bestLoad.load, max: bestLoad.load };
-  }
-
-  const loadNumbers = goodLoads.map(l => l.load).sort((a, b) => a - b);
-
-  return {
-    min: Math.min(...loadNumbers),
-    max: Math.max(...loadNumbers)
-  };
+  // Fixed optimal range based on research for individual contributors
+  // 5-9 concurrent tickets provides best balance of throughput and quality
+  return { min: 5, max: 9 };
 }
 
 /**
- * Determine current load status
+ * Determine current load status based on industry-standard zones
  */
 function determineLoadStatus(
   currentLoad: number,
   optimalRange: { min: number; max: number }
 ): 'under' | 'optimal' | 'over' | 'critical' {
-  if (currentLoad < optimalRange.min) {
+  // Under: < 5 tickets
+  if (currentLoad < 5) {
     return 'under';
-  } else if (currentLoad >= optimalRange.min && currentLoad <= optimalRange.max) {
+  }
+  // Optimal: 5-9 tickets
+  else if (currentLoad >= 5 && currentLoad <= 9) {
     return 'optimal';
-  } else if (currentLoad <= optimalRange.max + 2) {
+  }
+  // Over/Warning: 10-12 tickets
+  else if (currentLoad >= 10 && currentLoad <= 12) {
     return 'over';
-  } else {
+  }
+  // Critical: 13+ tickets
+  else {
     return 'critical';
   }
 }
@@ -270,14 +256,14 @@ function generateLoadRecommendations(
 function createInsufficientDataResponse(accountId: string, dataPoints: number): LoadAnalysis {
   return {
     accountId,
-    optimalRange: { min: 2, max: 3 },
+    optimalRange: { min: 5, max: 9 },
     loadCurve: {},
     currentLoad: 0,
     currentStatus: 'optimal',
     recommendations: [
-      `Currently have ${dataPoints} data points, need at least 10 for load analysis`,
+      `Currently have ${dataPoints} data points, need at least 10 for detailed load analysis`,
       'Complete more tickets and check back in a week or two',
-      'General guidance: Most developers perform best with 2-3 concurrent tickets'
+      'General guidance: Most individual contributors perform best with 5-9 concurrent tickets'
     ],
     confidence: 'low',
     dataPoints,

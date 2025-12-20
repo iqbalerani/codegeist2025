@@ -4,12 +4,15 @@
  */
 
 import { CurrentStatus } from '../models/analysis';
-import { getActiveIssues } from '../data/jira/issues';
+import { getActiveIssues, getCompletedIssues } from '../data/jira/issues';
 import { getCached, setCache } from '../data/cache';
 import { STATUS_TTL_HOURS } from '../models/cache';
 import { getCurrentTimeZone } from '../utils/dateHelpers';
 import { analyzeTimingPatterns } from './timing';
 import { analyzeLoadPatterns } from './load';
+import { analyzeBurnoutRisk } from './burnout';
+import { analyzePitCrewPatterns } from './pitcrew';
+import { predictSprintCompletion } from './predictions';
 
 /**
  * Get current status for a user
@@ -97,6 +100,154 @@ export async function getCurrentStatus(accountId?: string): Promise<CurrentStatu
     console.error('Error getting load analysis:', error);
   }
 
+  // Calculate velocity metrics
+  let velocityData: CurrentStatus['velocityData'] | undefined;
+  try {
+    console.log('========================================');
+    console.log('VELOCITY CALCULATION START');
+    console.log('========================================');
+
+    // Get completed issues from last 30 days
+    const completedIssuesLast30Days = await getCompletedIssues(cacheAccountId, 30);
+
+    console.log('Completed issues (30 days):', completedIssuesLast30Days.length);
+    console.log('Sample issues:', completedIssuesLast30Days.slice(0, 3).map(i => ({
+      key: i.key,
+      status: i.status,
+      resolved: i.resolved,
+      updated: i.updated,
+      created: i.created
+    })));
+
+    const monthlyTotal = completedIssuesLast30Days.length;
+
+    // Filter for last 7 days from the 30-day dataset
+    const now = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    console.log('Current time:', now.toISOString());
+    console.log('7 days ago:', sevenDaysAgo.toISOString());
+
+    const completedInLast7Days = completedIssuesLast30Days.filter(issue => {
+      // Use resolved date if available, otherwise fall back to updated date
+      const resolvedDate = issue.resolved ? new Date(issue.resolved) : null;
+      const updatedDate = issue.updated ? new Date(issue.updated) : null;
+      const dateToUse = resolvedDate || updatedDate;
+
+      console.log(`Issue ${issue.key}:`, {
+        resolved: issue.resolved,
+        resolvedDate: resolvedDate?.toISOString(),
+        updated: issue.updated,
+        updatedDate: updatedDate?.toISOString(),
+        dateToUse: dateToUse?.toISOString(),
+        inLast7Days: dateToUse ? dateToUse >= sevenDaysAgo : false
+      });
+
+      return dateToUse && dateToUse >= sevenDaysAgo;
+    });
+
+    console.log('Issues completed in last 7 days:', completedInLast7Days.length);
+    console.log('7-day issues keys:', completedInLast7Days.map(i => i.key));
+
+    const current = completedInLast7Days.length;
+    const weeklyAvg = monthlyTotal / 4.3; // 30 days / ~4.3 weeks
+
+    // Determine status based on current week vs average
+    let status: 'below' | 'on-pace' | 'above';
+    const variance = weeklyAvg > 0 ? (current - weeklyAvg) / weeklyAvg : 0;
+    if (variance < -0.2) {
+      status = 'below'; // More than 20% below average
+    } else if (variance > 0.2) {
+      status = 'above'; // More than 20% above average
+    } else {
+      status = 'on-pace'; // Within 20% of average
+    }
+
+    velocityData = {
+      current,
+      weeklyAvg: Math.round(weeklyAvg * 10) / 10, // Round to 1 decimal
+      monthlyTotal,
+      status
+    };
+
+    console.log('========================================');
+    console.log('VELOCITY FINAL RESULT:');
+    console.log({
+      monthlyTotal,
+      current,
+      weeklyAvg: velocityData.weeklyAvg,
+      status,
+      variance: Math.round(variance * 100) + '%'
+    });
+    console.log('========================================');
+  } catch (error) {
+    console.error('Error calculating velocity:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+  }
+
+  // Get burnout analysis
+  let burnoutData: CurrentStatus['burnoutData'] | undefined;
+  try {
+    console.log('🔥 getCurrentStatus: Calling analyzeBurnoutRisk...');
+    const burnoutAnalysis = await analyzeBurnoutRisk(cacheAccountId);
+    console.log('🔥 getCurrentStatus: Burnout analysis returned:', {
+      score: burnoutAnalysis.burnoutScore,
+      level: burnoutAnalysis.riskLevel,
+      factorsCount: burnoutAnalysis.riskFactors.length,
+      factors: burnoutAnalysis.riskFactors.map(f => ({ desc: f.description, impact: f.impact }))
+    });
+    burnoutData = {
+      burnoutScore: burnoutAnalysis.burnoutScore,
+      riskLevel: burnoutAnalysis.riskLevel,
+      topRiskFactors: burnoutAnalysis.riskFactors.slice(0, 3).map(f => f.description)
+    };
+    console.log('🔥 getCurrentStatus: burnoutData prepared:', burnoutData);
+  } catch (error) {
+    console.error('❌ Error getting burnout analysis:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+  }
+
+  // Get pit crew analysis
+  let pitCrewData: CurrentStatus['pitCrewData'] | undefined;
+  try {
+    const pitCrewAnalysis = await analyzePitCrewPatterns(cacheAccountId);
+    if (pitCrewAnalysis.teammates.length > 0) {
+      const topTeammates = pitCrewAnalysis.teammates.slice(0, 3).map(t => ({
+        name: t.displayName,
+        collaborations: t.collaborationCount
+      }));
+
+      let bestChemistry: { name: string; speedup: number } | undefined;
+      if (pitCrewAnalysis.teamMetrics.bestPair) {
+        bestChemistry = {
+          name: pitCrewAnalysis.teamMetrics.bestPair.displayName,
+          speedup: pitCrewAnalysis.teamMetrics.bestPair.speedup
+        };
+      }
+
+      pitCrewData = {
+        topTeammates,
+        bestChemistry
+      };
+    }
+  } catch (error) {
+    console.error('Error getting pit crew analysis:', error);
+  }
+
+  // Get sprint prediction
+  let sprintPredictionData: CurrentStatus['sprintPredictionData'] | undefined;
+  try {
+    const prediction = await predictSprintCompletion(cacheAccountId);
+    sprintPredictionData = {
+      completionProbability: prediction.predictions.completionProbability,
+      expectedCompleted: prediction.predictions.expectedTicketsCompleted,
+      atRiskCount: prediction.predictions.atRiskTickets.length
+    };
+  } catch (error) {
+    console.error('Error getting sprint prediction:', error);
+  }
+
   // Calculate sprint progress (simplified - would need sprint API integration)
   const sprintProgress = {
     completed: 0,
@@ -121,7 +272,11 @@ export async function getCurrentStatus(accountId?: string): Promise<CurrentStatu
     todayRecommendations,
     timestamp: new Date(),
     timingData,
-    loadData
+    loadData,
+    velocityData,
+    burnoutData,
+    pitCrewData,
+    sprintPredictionData
   };
 
   // TEMPORARILY DISABLED: Cache with short TTL

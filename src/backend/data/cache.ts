@@ -78,7 +78,17 @@ export async function invalidateCache(key: CacheKey): Promise<void> {
 
 export async function invalidateAllUserCache(accountId: string): Promise<void> {
   try {
-    const namespaces: CacheKey['namespace'][] = ['timing', 'strengths', 'collaboration', 'load', 'trends', 'status'];
+    const namespaces: CacheKey['namespace'][] = [
+      'timing',
+      'strengths',
+      'collaboration',
+      'load',
+      'trends',
+      'status',
+      'burnout',
+      'pitcrew',
+      'predictions'
+    ];
 
     await Promise.all(
       namespaces.map(namespace =>

@@ -101,13 +101,38 @@ export async function getCompletedIssues(
   const startDateStr = startDate.toISOString().split('T')[0];
 
   // ALWAYS use currentUser() - account IDs with colons cause JQL parsing errors
-  const jql = `assignee = currentUser() AND status IN (Done, Closed, Resolved) AND resolved >= "${startDateStr}" ORDER BY resolved DESC`;
+  // Use updated field instead of resolved since resolved might not be set consistently
+  const jql = `assignee = currentUser() AND status IN (Done, Closed, Resolved) AND updated >= "${startDateStr}" ORDER BY updated DESC`;
 
   try {
-    console.log('getCompletedIssues JQL:', jql);
+    console.log('========================================');
+    console.log('getCompletedIssues CALLED');
+    console.log('Days back:', daysBack);
+    console.log('Start date:', startDateStr);
+    console.log('JQL:', jql);
+    console.log('========================================');
+
     const rawIssues = await jiraClient.searchIssues(jql, undefined, 1000);
+
     console.log(`getCompletedIssues found ${rawIssues.length} issues`);
-    return rawIssues.map(parseJiraIssue);
+
+    // Log sample of raw issues to see what fields are available
+    if (rawIssues.length > 0) {
+      console.log('Sample raw issue fields:', {
+        key: rawIssues[0].key,
+        created: rawIssues[0].fields.created,
+        updated: rawIssues[0].fields.updated,
+        resolved: rawIssues[0].fields.resolved,
+        resolutiondate: rawIssues[0].fields.resolutiondate,
+        status: rawIssues[0].fields.status?.name
+      });
+    }
+
+    const parsed = rawIssues.map(parseJiraIssue);
+
+    console.log('Sample parsed issue:', parsed[0]);
+
+    return parsed;
   } catch (error) {
     console.error('Error fetching completed issues:', error);
     // Return empty array instead of throwing to allow dashboard to show partial data
