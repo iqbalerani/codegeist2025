@@ -23,6 +23,7 @@ import { RACING_FLAGS, LOAD_EMOJIS } from '../lib/constants';
 
 export const Dashboard: React.FC = () => {
   const { data, loading, error } = useDashboardData();
+  const [showSetupInstructions, setShowSetupInstructions] = React.useState(false);
 
   // Open Rovo chat using Forge bridge API
   const openRovoChat = async (prompt?: string) => {
@@ -46,21 +47,18 @@ export const Dashboard: React.FC = () => {
 
       console.log('✅ rovo.open() completed successfully!');
 
-      // Show setup instructions only once per browser
-      const hasSeenSetup = localStorage.getItem('driver-telemetry-agent-setup-shown');
-      if (!hasSeenSetup) {
-        setTimeout(() => {
-          const userResponse = confirm(
-            '💡 Team Radio Setup\n\n' +
-            'If the Rovo sidebar didn\'t open, you need to enable the agent:\n\n' +
-            '1. Click "Chat" in Jira\'s top menu\n2. Browse Agents → Find "Driver Telemetry"\n3. Click "Enable"\n\n' +
-            'Click OK to not show this again, or Cancel to see it next time.'
-          );
-          if (userResponse) {
-            localStorage.setItem('driver-telemetry-agent-setup-shown', 'true');
-          }
-        }, 1500);
-      }
+      // Show setup instructions if sidebar doesn't open
+      setTimeout(() => {
+        alert(
+          '💡 Team Radio Setup\n\n' +
+          'If the Rovo sidebar didn\'t open, you need to enable the agent:\n\n' +
+          '1. Click "Chat" in Jira\'s top navigation bar\n' +
+          '2. Click "Browse Agents" or search for "Driver Telemetry"\n' +
+          '3. Find "Driver Telemetry" and click "Enable"\n' +
+          '4. Try clicking "Open Team Radio" again\n\n' +
+          'Note: You only need to enable it once. After that, Team Radio will open directly.'
+        );
+      }, 1500);
     } catch (err) {
       console.error('❌ rovo.open() threw an error:', err);
       console.error('Error type:', err instanceof Error ? err.constructor.name : typeof err);
@@ -497,6 +495,63 @@ export const Dashboard: React.FC = () => {
                 <p className="text-sm text-f1-text-secondary">Ask your pit crew for personalized guidance</p>
               </div>
             </div>
+
+            {/* Setup Help Banner */}
+            <div
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                borderRadius: '6px',
+                padding: '12px',
+              }}
+            >
+              <div className="flex items-start gap-2">
+                <span style={{ fontSize: '16px' }}>ℹ️</span>
+                <div className="flex-1">
+                  <div className="text-sm text-f1-text-primary font-semibold mb-1">
+                    One-time setup required
+                  </div>
+                  <div className="text-xs text-f1-text-secondary mb-2">
+                    Admin settings are already configured ✅ - you just need to enable the agent once.
+                  </div>
+                  <button
+                    onClick={() => setShowSetupInstructions(!showSetupInstructions)}
+                    style={{
+                      fontSize: '12px',
+                      color: '#3B82F6',
+                      textDecoration: 'underline',
+                      background: 'none',
+                      border: 'none',
+                      padding: '0',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {showSetupInstructions ? 'Hide' : 'Show'} quick setup (30 seconds) →
+                  </button>
+
+                  {showSetupInstructions && (
+                    <div
+                      className="text-xs text-f1-text-secondary mt-3 space-y-1"
+                      style={{
+                        paddingLeft: '12px',
+                        borderLeft: '2px solid rgba(59, 130, 246, 0.3)'
+                      }}
+                    >
+                      <div><strong>Enable Driver Telemetry agent in Jira Chat:</strong></div>
+                      <div className="mt-1">1. Click <strong>"Chat"</strong> in Jira's top navigation bar</div>
+                      <div>2. Click <strong>"Browse Agents"</strong> in the Rovo sidebar</div>
+                      <div>3. Search for or find <strong>"Driver Telemetry"</strong></div>
+                      <div>4. Click <strong>"Enable"</strong> next to Driver Telemetry</div>
+                      <div>5. Return here and click "Open Team Radio" ✅</div>
+                      <div className="mt-2" style={{ color: '#94A3B8', fontStyle: 'italic' }}>
+                        💡 This is a one-time setup. After enabling, Team Radio opens instantly with one click.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => openRovoChat()}>
                 Open Team Radio
